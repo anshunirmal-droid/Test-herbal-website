@@ -1,8 +1,8 @@
-# Vanya Roots: brand website
+# Vanyaa Roots: brand website
 
 A one-page brand and launch-waitlist site for an India-sourced herbal supplement brand. Built with Vite + React, deployable to Vercel in a few clicks.
 
-"Vanya Roots" is a placeholder name. Check USPTO (Class 5) availability before using it.
+"Vanyaa Roots" is a placeholder name. Check USPTO (Class 5) availability before using it.
 
 ## Run locally
 

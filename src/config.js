@@ -1,8 +1,8 @@
 // Edit this file to rebrand the whole site.
-// "Vanya Roots" is a placeholder name: check trademark availability (USPTO, Class 5) before using it.
+// "Vanyaa Roots" is a placeholder name: check trademark availability (USPTO, Class 5) before using it.
 
 export const brand = {
-  name: 'Vanya Roots',
+  name: 'Vanyaa Roots',
   tagline: 'Single-origin Ayurvedic herbs, tested lot by lot.',
   email: 'hello@example.com', // replace with your real address
   amazonStoreUrl: '', // paste your Amazon storefront URL when live; leave '' to show "Coming soon"
