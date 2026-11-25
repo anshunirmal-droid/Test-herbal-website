@@ -114,6 +114,21 @@ create policy "Approved customers can read active tools"
   using (active and public.is_approved());
 
 -- ============================================================
+-- 4. API permissions
+--    Newer Supabase projects do NOT give the browser roles access to new tables
+--    automatically. RLS above still decides which rows are allowed; these grants
+--    only open the door. Visitors can insert form entries but never read them.
+--    Safe to run again.
+-- ============================================================
+
+grant usage on schema public to anon, authenticated;
+grant insert on public.waitlist to anon, authenticated;
+grant insert on public.contact_messages to anon, authenticated;
+grant select on public.profiles to authenticated;
+grant select on public.tools to authenticated;
+grant execute on function public.is_approved() to authenticated;
+
+-- ============================================================
 -- Day-to-day admin (run in the SQL Editor, or just edit the row in Table Editor)
 -- ============================================================
 -- Approve a customer:
