@@ -1,22 +1,23 @@
 import { useState } from 'react'
+import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import { brand, products, faqs } from './config.js'
-
-function Leaf({ color = '#E8A94A', size = 40 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <path d="M32 54C17 44 14 24 32 8c18 16 15 36 0 46z" fill={color} />
-      <path d="M32 14v40M32 30l-8-6M32 38l9-7" stroke="rgba(0,0,0,.25)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-    </svg>
-  )
-}
+import { Leaf } from './Leaf.jsx'
+import { supabaseEnabled } from './supabaseClient.js'
+import { saveEntry } from './forms.js'
+import { useAuth } from './auth.jsx'
+import Login from './pages/Login.jsx'
+import SetPassword from './pages/SetPassword.jsx'
+import Dashboard from './pages/Dashboard.jsx'
 
 function Nav() {
   const [open, setOpen] = useState(false)
+  const { user } = useAuth()
   const links = [
     ['#products', 'Products'],
     ['#sourcing', 'Sourcing'],
     ['#quality', 'Quality'],
     ['#faq', 'FAQ'],
+    ['#contact', 'Contact'],
   ]
   return (
     <header className="nav">
@@ -32,6 +33,9 @@ function Nav() {
           {links.map(([href, label]) => (
             <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>
           ))}
+          {supabaseEnabled && (
+            <Link to={user ? '/dashboard' : '/login'} onClick={() => setOpen(false)}>{user ? 'Dashboard' : 'Log in'}</Link>
+          )}
           <a href="#waitlist" className="btn btn-small" onClick={() => setOpen(false)}>Join the list</a>
         </nav>
       </div>
@@ -185,11 +189,23 @@ function Faq() {
 
 function Waitlist() {
   const [email, setEmail] = useState('')
+  const [trap, setTrap] = useState('') // honeypot: real visitors never see or fill this
   const [status, setStatus] = useState('idle')
 
   async function submit(e) {
     e.preventDefault()
     if (!email) return
+    if (trap) { setStatus('done'); return }
+    if (supabaseEnabled) {
+      setStatus('sending')
+      try {
+        await saveEntry('waitlist', { email: email.trim() })
+        setStatus('done')
+      } catch {
+        setStatus('error')
+      }
+      return
+    }
     if (!brand.waitlistEndpoint) {
       window.location.href = `mailto:${brand.email}?subject=${encodeURIComponent('Launch waitlist')}&body=${encodeURIComponent('Please add me to the launch list: ' + email)}`
       setStatus('done')
@@ -219,9 +235,71 @@ function Waitlist() {
         ) : (
           <form className="waitlist" onSubmit={submit}>
             <label htmlFor="email" className="sr-only">Email address</label>
-            <input id="email" type="email" required placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input id="email" type="email" required maxLength={254} placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="hp" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={trap} onChange={(e) => setTrap(e.target.value)} />
             <button className="btn" type="submit" disabled={status === 'sending'}>
               {status === 'sending' ? 'Joining…' : 'Join the list'}
+            </button>
+          </form>
+        )}
+        {status === 'error' && <p className="error">Something went wrong. Please email us at {brand.email}.</p>}
+      </div>
+    </section>
+  )
+}
+
+function Contact() {
+  const [form, setForm] = useState({ name: '', email: '', message: '' })
+  const [trap, setTrap] = useState('')
+  const [status, setStatus] = useState('idle')
+  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
+
+  async function submit(e) {
+    e.preventDefault()
+    if (trap) { setStatus('done'); return }
+    if (!supabaseEnabled) {
+      window.location.href = `mailto:${brand.email}?subject=${encodeURIComponent('Message from ' + form.name)}&body=${encodeURIComponent(form.message + '\n\n' + form.email)}`
+      setStatus('done')
+      return
+    }
+    setStatus('sending')
+    try {
+      await saveEntry('contact_messages', {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        message: form.message.trim(),
+      })
+      setStatus('done')
+    } catch {
+      setStatus('error')
+    }
+  }
+
+  return (
+    <section className="section" id="contact">
+      <div className="wrap narrow">
+        <p className="eyebrow">Contact</p>
+        <h2>Send us a message</h2>
+        <p>Questions about our herbs, testing or wholesale? Write to us and we will reply by email. Please do not include health or medical details.</p>
+        {status === 'done' ? (
+          <p className="thanks">Thank you. We have your message and will be in touch.</p>
+        ) : (
+          <form className="contact-form" onSubmit={submit}>
+            <label>
+              Name
+              <input type="text" required maxLength={100} autoComplete="name" value={form.name} onChange={set('name')} />
+            </label>
+            <label>
+              Email
+              <input type="email" required maxLength={254} autoComplete="email" value={form.email} onChange={set('email')} />
+            </label>
+            <label>
+              Message
+              <textarea required maxLength={2000} rows={5} value={form.message} onChange={set('message')} />
+            </label>
+            <input className="hp" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={trap} onChange={(e) => setTrap(e.target.value)} />
+            <button className="btn" type="submit" disabled={status === 'sending'}>
+              {status === 'sending' ? 'Sending…' : 'Send message'}
             </button>
           </form>
         )}
@@ -252,7 +330,7 @@ function Footer() {
   )
 }
 
-export default function App() {
+function Home() {
   return (
     <>
       <Nav />
@@ -262,9 +340,22 @@ export default function App() {
         <Sourcing />
         <Quality />
         <Faq />
+        <Contact />
         <Waitlist />
       </main>
       <Footer />
     </>
+  )
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/set-password" element={<SetPassword />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
